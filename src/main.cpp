@@ -41,7 +41,7 @@ uint16_t sensorValues[SensorCount];
 // PARAMETERS
 // VVVVVVVVVV
 
-int defSpd  = 100; // Default speed. The speed setting for straght lines.
+int defSpd  = 220; // Default speed. The speed setting for straght lines.
 int RturnSpd; // Turning speed. The speed setting for corners.
 int LturnSpd;
 int error;
@@ -137,9 +137,10 @@ int makeTurn(SIDE turnTo){
 
   if(turnTo == STRAIGHT){return(0);}
 
-  Serial.println("Turning!");
+  driveMotor(MOTOR_R, FORWARD, defSpd);
+  driveMotor(MOTOR_L, FORWARD, defSpd);
 
-  unsigned int  stepGoal = (mmToMiddle/mmPerStep)-2;
+  unsigned int  stepGoal = (mmToMiddle/mmPerStep)-6;
 
   unsigned int stepNrStartA = nrStepsA;
   unsigned int stepNrStartB = nrStepsB;
@@ -157,59 +158,45 @@ int makeTurn(SIDE turnTo){
   driveMotor(MOTOR_L, FORWARD, 0, true);
 
   Serial.print("Done");
-  delay(1000);
 
-  if(turnTo == LEFT){
-    driveMotor(MOTOR_R, FORWARD, 180);
-    driveMotor(MOTOR_L, REVERSE, 180);
+  if(turnTo == RIGHT){
+    driveMotor(MOTOR_R, FORWARD, 100);
+    driveMotor(MOTOR_L, REVERSE, 100);
+    Serial.print("RIGHT");
   }
   else{
-    driveMotor(MOTOR_R, REVERSE, 180);
-    driveMotor(MOTOR_L, FORWARD, 180);
+    driveMotor(MOTOR_R, REVERSE, 100);
+    driveMotor(MOTOR_L, FORWARD, 100);
+    Serial.print("LEFT");
   }
-  
+
   uint16_t position = qtr.readLineBlack(sensorValues);
-  for(int i = 0; i < SensorCount; i++){
-      if(sensorValues[i] >= 900){
-        normArray[i] = 1;
-      }
-      else{
-        normArray[i] = 0;
-      }
-    }
-  while(position > 3700 || position < 3300){
+  
+  int stop = 0;
+
+  while(stop == 0){
+    
     position = qtr.readLineBlack(sensorValues);
-    for(int i = 0; i < SensorCount; i++){
-      if(sensorValues[i] >= 900){
-        normArray[i] = 1;
-      }
-      else{
-        normArray[i] = 0;
-      }
+    if(sensorValues[4] > 900 || sensorValues[3] > 900 ){
+      stop = 1;
     }
   }
-
-  driveMotor(MOTOR_R, FORWARD, 0, true);
-  driveMotor(MOTOR_L, FORWARD, 0, true);
-
-  delay(2000);
 
   return(0);
 }
 
 
 
-SIDE isTurn(int position){
-  if(position > 4300){
+SIDE isTurn(int array[]){
+  if((array[1] == 1 || array[0] == 1) && (array[6] == 0 || array[7] == 0)){
     Serial.println("LEFT");
     return(LEFT);
   }
-  else if(position < 2700){
+  else if((array[1] == 0 || array[0] == 0) && (array[6] == 1 || array[7] == 1)){
     Serial.println("RIGHT");
     return(RIGHT);
   }
 
-  Serial.println("STRAIGHT");
   return(STRAIGHT);
 }
 
@@ -300,8 +287,8 @@ void loop(){
 
     int error = position - 3500;
 
-    RturnSpd = defSpd + (1 * error + 1 * (error - lastError));
-    LturnSpd = defSpd - (1 * error + 1 * (error - lastError));
+    RturnSpd = defSpd + (2 * error + 2 * (error - lastError));
+    LturnSpd = defSpd - (2 * error + 2 * (error - lastError));
 
     lastError = error;
     
@@ -318,23 +305,25 @@ void loop(){
 
 
 
-    // if(lineNormal(normArray)){ // Is line normal?
-    //   makeTurn(isTurn(position));
-    // }
-    // else{
-    //   if(digitalRead(btnThr)){
-    //     // It's a pause sign, pause for a bit and then go on
-    //     driveMotor(MOTOR_R, FORWARD, 0, true);
-    //     driveMotor(MOTOR_L, FORWARD, 0, true);
-    //     delay(2000);
-    //   }
-    //   else{
-    //     // Brings car to stop at stop sign.
-    //     driveMotor(MOTOR_R, FORWARD, 0, true);
-    //     driveMotor(MOTOR_L, FORWARD, 0, true);
-    //     stop = true;
-    //   }
-    // }
+    if(lineNormal(normArray)){ // Is line normal?
+      if(isTurn(normArray) != STRAIGHT){
+        makeTurn(isTurn(normArray));
+      }
+    }
+    else{
+      if(digitalRead(btnThr)){
+        // It's a pause sign, pause for a bit and then go on
+        driveMotor(MOTOR_R, FORWARD, 0, true);
+        driveMotor(MOTOR_L, FORWARD, 0, true);
+        delay(2000);
+      }
+      else{
+        // Brings car to stop at stop sign.
+        driveMotor(MOTOR_R, FORWARD, 0, true);
+        driveMotor(MOTOR_L, FORWARD, 0, true);
+        stop = true;
+      }
+    }
   }
 
 
