@@ -25,10 +25,6 @@ QTRSensors qtr;
 
 #define strtBtn 4
 
-#define btnOne  5
-#define btnTwo  6
-#define btnThr  7
-
 #define encoderPinA 20  // Encoder channel A for motor A connected to digital pin 20
 #define encoderPinB 21  // Encoder channel A for motor B connected to digital pin 21
 
@@ -41,12 +37,15 @@ uint16_t sensorValues[SensorCount];
 // PARAMETERS
 // VVVVVVVVVV
 
-int defSpd  = 220; // Default speed. The speed setting for straght lines.
+int defSpd  = 255; // Default speed. The speed setting for straght lines.
 int RturnSpd; // Turning speed. The speed setting for corners.
 int LturnSpd;
 int error;
 int lastError = 0;
 int maxSpeed = 255;
+
+int allignDel = 100;
+int pauzeDel = 1000;
 
 
 
@@ -56,14 +55,13 @@ int maxSpeed = 255;
 typedef enum {MOTOR_R, MOTOR_L} SELECT_MOTOR;
 typedef enum {FORWARD, REVERSE} DIRECTION;
 
-typedef enum {LEFT, RIGHT, STRAIGHT} SIDE;
-
 bool stop = false;
 
 int normArray[8];
 
 const float mmPerStep = (65*PI)/20;
 const float mmToMiddle = 160;
+unsigned int  stepGoal = (mmToMiddle/mmPerStep)-2;
 
 volatile unsigned long nrStepsA = 0;
 volatile unsigned long nrStepsB = 0;
@@ -91,7 +89,7 @@ void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = fa
   int pwm = 0;
   int brk = 0;
 
-  if(motor == MOTOR_R){
+  if(motor == MOTOR_L){
     dir = 12;
     pwm = 3;
     brk = 9;
@@ -118,57 +116,43 @@ void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = fa
 
 
 
-bool lineNormal(int array[]){
-  int total = 0;
-  for(int i = 0; i < SensorCount; i++){
-    total += array[i];
+int makeTurn(int array[]){
+
+  SELECT_MOTOR turnFor;
+  SELECT_MOTOR turnRev;
+
+  if((array[0] == 1  && array[7] == 0)){
+    Serial.println("RIGHT");
+    turnFor = MOTOR_R;
+    turnRev = MOTOR_L;
+  }
+  else if((array[0] == 0  && array[7] == 1)){
+    Serial.println("LEFT");
+    turnFor = MOTOR_L;
+    turnRev = MOTOR_R;
+  }
+  else{
+    return(0);
   }
 
-  if(total < 8){
-    return(true);
-  }
+  Serial.println("turning");
 
-  return(false);
-}
+  // unsigned int stepNrStart = nrStepsA;
 
+  // while(nrStepsA < stepNrStart + stepGoal){
+  // }
+  
+  delay(150);
 
-
-int makeTurn(SIDE turnTo){
-
-  if(turnTo == STRAIGHT){return(0);}
-
-  driveMotor(MOTOR_R, FORWARD, defSpd);
-  driveMotor(MOTOR_L, FORWARD, defSpd);
-
-  unsigned int  stepGoal = (mmToMiddle/mmPerStep)-6;
-
-  unsigned int stepNrStartA = nrStepsA;
-  unsigned int stepNrStartB = nrStepsB;
-
-  while((nrStepsA < stepNrStartA + stepGoal) || (nrStepsB < stepNrStartB + stepGoal)){
-    if(nrStepsA > stepNrStartA + stepGoal){
-      driveMotor(MOTOR_R, FORWARD, 0, true);
-    }
-
-    if(nrStepsB > stepNrStartB + stepGoal){
-      driveMotor(MOTOR_L, FORWARD, 0, true);
-    }
-  }
   driveMotor(MOTOR_R, FORWARD, 0, true);
   driveMotor(MOTOR_L, FORWARD, 0, true);
 
-  Serial.print("Done");
 
-  if(turnTo == RIGHT){
-    driveMotor(MOTOR_R, FORWARD, 100);
-    driveMotor(MOTOR_L, REVERSE, 100);
-    Serial.print("RIGHT");
-  }
-  else{
-    driveMotor(MOTOR_R, REVERSE, 100);
-    driveMotor(MOTOR_L, FORWARD, 100);
-    Serial.print("LEFT");
-  }
+  
+  driveMotor(turnFor, FORWARD, 200);
+  driveMotor(turnRev, REVERSE, 200);
+  
+  
 
   uint16_t position = qtr.readLineBlack(sensorValues);
   
@@ -182,23 +166,11 @@ int makeTurn(SIDE turnTo){
     }
   }
 
+  
+
   return(0);
 }
 
-
-
-SIDE isTurn(int array[]){
-  if((array[1] == 1 || array[0] == 1) && (array[6] == 0 || array[7] == 0)){
-    Serial.println("LEFT");
-    return(LEFT);
-  }
-  else if((array[1] == 0 || array[0] == 0) && (array[6] == 1 || array[7] == 1)){
-    Serial.println("RIGHT");
-    return(RIGHT);
-  }
-
-  return(STRAIGHT);
-}
 
 
 // SETUP
@@ -222,24 +194,20 @@ void setup(){
   pinMode(encoderPinA, INPUT_PULLUP);
   pinMode(encoderPinB, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(encoderPinA), updateEncoderA, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(encoderPinB), updateEncoderB, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(encoderPinA), updateEncoderA, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(encoderPinB), updateEncoderB, CHANGE);
 
   qtr.setTypeAnalog();
   qtr.setSensorPins((const uint8_t[]){A8, A9, A10, A11, A12, A13, A14, A15}, SensorCount);
   qtr.setEmitterPin(2);
 
   delay(500);
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, HIGH);
 
 
   for (uint16_t i = 0; i < 150; i++){
     qtr.calibrate();
     Serial.println(i);
   }
-  digitalWrite(LED_BUILTIN, LOW);
-
 
 
 }
@@ -250,7 +218,11 @@ void setup(){
 // VVVV
 void loop(){
 
-  while(digitalRead(strtBtn) != HIGH) {}
+
+  
+
+  while(digitalRead(strtBtn) != HIGH) {
+  }
   stop = false;
   while(!stop){
 
@@ -262,7 +234,7 @@ void loop(){
     uint16_t position = qtr.readLineBlack(sensorValues);
 
     for(int i = 0; i < SensorCount; i++){
-      if(sensorValues[i] >= 900){
+      if(sensorValues[i] >= 700){
         normArray[i] = 1;
       }
       else{
@@ -270,25 +242,12 @@ void loop(){
       }
     }
 
-    // print the sensor values as numbers from 0 to 1000, where 0 means maximum
-    // reflectance and 1000 means minimum reflectance, followed by the line
-    // position
-    // for (uint8_t i = 0; i < SensorCount; i++)
-    // {
-    //   if(sensorValues[i] >= 900){
-    //     Serial.print(1);
-    //   }
-    //   else{
-    //     Serial.print(0);
-    //   }
-    //   Serial.print('\t');
-    // }
-    // Serial.println(position);
+    
 
     int error = position - 3500;
 
-    RturnSpd = defSpd + (2 * error + 2 * (error - lastError));
-    LturnSpd = defSpd - (2 * error + 2 * (error - lastError));
+    RturnSpd = defSpd - (2 * error + 3 * (error - lastError));
+    LturnSpd = defSpd + (2 * error + 3 * (error - lastError));
 
     lastError = error;
     
@@ -305,25 +264,51 @@ void loop(){
 
 
 
-    if(lineNormal(normArray)){ // Is line normal?
-      if(isTurn(normArray) != STRAIGHT){
-        makeTurn(isTurn(normArray));
+    
+    makeTurn(normArray);
+    
+    
+    if(normArray[0] == 1 && normArray[7] == 1){
+
+      driveMotor(MOTOR_R, FORWARD, 0, true);
+      driveMotor(MOTOR_L, FORWARD, 0, true);
+
+      bool pauze = false;
+
+      for(int i = 500; i > 0; i--){
+        position = qtr.readLineBlack(sensorValues);
+
+        for(int i = 0; i < SensorCount; i++){
+          if(sensorValues[i] >= 700){
+            normArray[i] = 1;
+          }
+          else{
+            normArray[i] = 0;
+          }
+        }
+        if(normArray[0] == 0 || normArray[7] == 0){
+          pauze = true;
+          Serial.println("pauze");
+        }
       }
-    }
-    else{
-      if(digitalRead(btnThr)){
-        // It's a pause sign, pause for a bit and then go on
-        driveMotor(MOTOR_R, FORWARD, 0, true);
-        driveMotor(MOTOR_L, FORWARD, 0, true);
-        delay(2000);
-      }
-      else{
-        // Brings car to stop at stop sign.
-        driveMotor(MOTOR_R, FORWARD, 0, true);
-        driveMotor(MOTOR_L, FORWARD, 0, true);
+
+      delay(allignDel);
+
+      driveMotor(MOTOR_R, FORWARD, 0, true);
+      driveMotor(MOTOR_L, FORWARD, 0, true);
+      if(pauze == false){
         stop = true;
       }
+
+      delay(pauzeDel);
+      
     }
+
+    for(int i = 0; i < SensorCount; i++){
+      Serial.print(normArray[i]);
+      Serial.print("\t");
+    }
+    Serial.println();
   }
 
 
