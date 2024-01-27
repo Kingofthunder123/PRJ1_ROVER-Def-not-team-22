@@ -137,13 +137,13 @@ int makeTurn(int array[]){
 
   Serial.println("turning");
 
+  delay(150);
+
   // unsigned int stepNrStart = nrStepsA;
 
   // while(nrStepsA < stepNrStart + stepGoal){
   // }
   
-  delay(150);
-
   driveMotor(MOTOR_R, FORWARD, 0, true);
   driveMotor(MOTOR_L, FORWARD, 0, true);
 
