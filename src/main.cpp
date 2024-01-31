@@ -3,9 +3,16 @@
 
 #include <Arduino.h>
 #include <QTRSensors.h>
+#include <FastLED.h>
 
 QTRSensors qtr;
 
+
+#define NUM_LEDS 22
+#define DATA_PIN 17
+#define Brightness 100
+
+CRGB leds[NUM_LEDS];
 
 
 // PIN DECLAIRATION
@@ -44,8 +51,8 @@ int error;
 int lastError = 0;
 int maxSpeed = 255;
 
-int allignDel = 200;
-int pauzeDel = 1000;
+int allignDel = 1;
+int pauzeDel = 5000;
 
 
 
@@ -137,7 +144,7 @@ int makeTurn(int array[]){
 
   Serial.println("turning");
 
-  delay(150);
+  delay(175);
 
   // unsigned int stepNrStart = nrStepsA;
 
@@ -149,20 +156,20 @@ int makeTurn(int array[]){
 
 
   
-  driveMotor(turnFor, FORWARD, 200);
-  driveMotor(turnRev, REVERSE, 200);
+  driveMotor(turnFor, FORWARD, 180);
+  driveMotor(turnRev, REVERSE, 180);
   
   
 
-  uint16_t position = qtr.readLineBlack(sensorValues);
+  qtr.readLineBlack(sensorValues);
   
-  int stop = 0;
+  int stopt = 0;
 
-  while(stop == 0){
+  while(stopt == 0){
     
-    position = qtr.readLineBlack(sensorValues);
-    if(sensorValues[4] > 900 || sensorValues[3] > 900 ){
-      stop = 1;
+    qtr.readLineBlack(sensorValues);
+    if(sensorValues[3] > 800 || sensorValues[4] > 800 ){
+      stopt = 1;
     }
   }
 
@@ -178,6 +185,10 @@ int makeTurn(int array[]){
 void setup(){
   
   Serial.begin(9600);
+
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(Brightness);
+  FastLED.clear();
 
   pinMode(dirPinA, OUTPUT);
   pinMode(dirPinB, OUTPUT);
@@ -226,7 +237,9 @@ void loop(){
   stop = false;
   while(!stop){
 
-
+  
+  fill_solid(leds, NUM_LEDS, CRGB::Green);
+  FastLED.show();
 
 
     // read calibrated sensor values and obtain a measure of the line position
@@ -234,7 +247,7 @@ void loop(){
     uint16_t position = qtr.readLineBlack(sensorValues);
 
     for(int i = 0; i < SensorCount; i++){
-      if(sensorValues[i] >= 700){
+      if(sensorValues[i] >= 800){
         normArray[i] = 1;
       }
       else{
@@ -270,13 +283,13 @@ void loop(){
     
     if(normArray[0] == 1 && normArray[7] == 1){
 
-      driveMotor(MOTOR_R, FORWARD, 0, true);
-      driveMotor(MOTOR_L, FORWARD, 0, true);
+      driveMotor(MOTOR_R, FORWARD, 70);
+      driveMotor(MOTOR_L, FORWARD, 70);
 
-      bool pauze = false;
+      int starttime = millis();
 
-      for(int i = 500; i > 0; i--){
-        position = qtr.readLineBlack(sensorValues);
+      while(normArray[0] == 1 || normArray[7] == 1){
+        qtr.readLineBlack(sensorValues);
 
         for(int i = 0; i < SensorCount; i++){
           if(sensorValues[i] >= 700){
@@ -286,21 +299,72 @@ void loop(){
             normArray[i] = 0;
           }
         }
-        if(normArray[0] == 0 || normArray[7] == 0){
-          pauze = true;
-          Serial.println("pauze");
-        }
       }
+      int endTime = millis();
 
       delay(allignDel);
 
       driveMotor(MOTOR_R, FORWARD, 0, true);
       driveMotor(MOTOR_L, FORWARD, 0, true);
-      if(pauze == false){
+
+      if(endTime - starttime < 500){
+        fill_solid(leds, NUM_LEDS, CRGB::Blue);
+        FastLED.show();
+        stop = false;
+        delay(pauzeDel);
+      }
+      else{
+        fill_solid(leds, NUM_LEDS, CRGB::Red);
+        FastLED.show();
         stop = true;
       }
+    
 
-      delay(pauzeDel);
+      // for(int i = 500; i > 0; i--){
+      //   position = qtr.readLineBlack(sensorValues);
+
+      //   for(int i = 0; i < SensorCount; i++){
+      //     if(sensorValues[i] >= 700){
+      //       normArray[i] = 1;
+      //     }
+      //     else{
+      //       normArray[i] = 0;
+      //     }
+      //   }
+      //   if(normArray[0] == 0 || normArray[7] == 0){
+      //     pauze = true;
+      //     Serial.println("pauze");
+      //   }
+      // }
+
+      // delay(allignDel);
+
+      // driveMotor(MOTOR_R, FORWARD, 0, true);
+      // driveMotor(MOTOR_L, FORWARD, 0, true);
+      // if(pauze == false){
+      //   stop = true;
+
+      //   driveMotor(MOTOR_R, FORWARD, 180);
+      //   driveMotor(MOTOR_L, FORWARD, 180);
+
+      //   while(normArray[0] == 0 || normArray[7] == 0){
+      //     position = qtr.readLineBlack(sensorValues);
+
+      //     for(int i = 0; i < SensorCount; i++){
+      //       if(sensorValues[i] >= 700){
+      //         normArray[i] = 1;
+      //       }
+      //       else{
+      //         normArray[i] = 0;
+      //       }
+      //     }
+      //   }
+
+      //   delay(100);
+        
+        
+      // }
+
       
     }
 
