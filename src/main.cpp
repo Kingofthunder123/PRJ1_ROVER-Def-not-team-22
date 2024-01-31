@@ -214,6 +214,9 @@ void setup(){
 
   delay(500);
 
+  fill_solid(leds, NUM_LEDS, CRGB::Purple);
+  FastLED.show();
+
 
   for (uint16_t i = 0; i < 150; i++){
     qtr.calibrate();
@@ -229,7 +232,8 @@ void setup(){
 // VVVV
 void loop(){
 
-
+  fill_solid(leds, NUM_LEDS, CRGB::Red);
+  FastLED.show();
   
 
   while(digitalRead(strtBtn) != HIGH) {
@@ -247,7 +251,7 @@ void loop(){
     uint16_t position = qtr.readLineBlack(sensorValues);
 
     for(int i = 0; i < SensorCount; i++){
-      if(sensorValues[i] >= 800){
+      if(sensorValues[i] >= 750){
         normArray[i] = 1;
       }
       else{
@@ -314,8 +318,6 @@ void loop(){
         delay(pauzeDel);
       }
       else{
-        fill_solid(leds, NUM_LEDS, CRGB::Red);
-        FastLED.show();
         stop = true;
       }
     
