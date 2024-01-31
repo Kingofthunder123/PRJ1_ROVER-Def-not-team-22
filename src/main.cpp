@@ -288,7 +288,7 @@ void loop(){
         }
         if(normArray[0] == 0 || normArray[7] == 0){
           pauze = true;
-          Serial.println("pauze");
+          
         }
       }
 
