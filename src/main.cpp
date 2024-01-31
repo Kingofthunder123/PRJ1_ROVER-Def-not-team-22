@@ -44,7 +44,7 @@ int error;
 int lastError = 0;
 int maxSpeed = 255;
 
-int allignDel = 100;
+int allignDel = 200;
 int pauzeDel = 1000;
 
 
