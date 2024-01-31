@@ -28,6 +28,8 @@ QTRSensors qtr;
 #define encoderPinA 20  // Encoder channel A for motor A connected to digital pin 20
 #define encoderPinB 21  // Encoder channel A for motor B connected to digital pin 21
 
+#define ledPin 13
+
 
 const uint8_t SensorCount = 8;
 uint16_t sensorValues[SensorCount];
@@ -37,15 +39,18 @@ uint16_t sensorValues[SensorCount];
 // PARAMETERS
 // VVVVVVVVVV
 
-int defSpd  = 255; // Default speed. The speed setting for straght lines.
-int RturnSpd; // Turning speed. The speed setting for corners.
-int LturnSpd;
-int error;
-int lastError = 0;
-int maxSpeed = 255;
+const int defSpd  = 255; // Default speed. The speed setting for straght lines.
+const int turnSpeed = 200;
+const int maxSpeed = 255;
 
-int allignDel = 100;
-int pauzeDel = 1000;
+const int allignDel = 100;
+const int pauzeDel = 1000;
+const int turnDel = 150;
+
+const int K1 = 2;
+const int K2 = 3;
+
+const unsigned int defThreshold = 700;
 
 
 
@@ -57,14 +62,21 @@ typedef enum {FORWARD, REVERSE} DIRECTION;
 
 bool stop = false;
 
-int normArray[8];
+bool normArray[8];
 
 const float mmPerStep = (65*PI)/20;
 const float mmToMiddle = 160;
 unsigned int  stepGoal = (mmToMiddle/mmPerStep)-2;
 
+uint16_t position;
+
 volatile unsigned long nrStepsA = 0;
 volatile unsigned long nrStepsB = 0;
+
+int RturnSpd; // Turning speed. The speed setting for corners.
+int LturnSpd;
+int error;
+int lastError = 0;
 
 
 
@@ -81,7 +93,16 @@ void updateEncoderB() {
   nrStepsB++;
 }
 
-
+void normalize(unsigned int threshold = defThreshold){
+  for(int i = 0; i < SensorCount; i++){
+    if(sensorValues[i] >= threshold){
+      normArray[i] = 1;
+    }
+    else{
+      normArray[i] = 0;
+    }
+  }
+}
 
 void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = false){
 
@@ -90,14 +111,14 @@ void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = fa
   int brk = 0;
 
   if(motor == MOTOR_L){
-    dir = 12;
-    pwm = 3;
-    brk = 9;
+    dir = dirPinA;
+    pwm = pwmPinA;
+    brk = brkPinA;
   }
   else{
-    dir = 13;
-    pwm = 11;
-    brk = 8;
+    dir = dirPinB;
+    pwm = pwmPinB;
+    brk = brkPinB;
   }
 
 
@@ -116,7 +137,7 @@ void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = fa
 
 
 
-int makeTurn(int array[]){
+int makeTurn(bool array[]){
 
   SELECT_MOTOR turnFor;
   SELECT_MOTOR turnRev;
@@ -137,37 +158,34 @@ int makeTurn(int array[]){
 
   Serial.println("turning");
 
-  delay(150);
+  delay(turnDel);
 
-  // unsigned int stepNrStart = nrStepsA;
-
-  // while(nrStepsA < stepNrStart + stepGoal){
-  // }
-  
   driveMotor(MOTOR_R, FORWARD, 0, true);
   driveMotor(MOTOR_L, FORWARD, 0, true);
 
 
   
-  driveMotor(turnFor, FORWARD, 200);
-  driveMotor(turnRev, REVERSE, 200);
+  driveMotor(turnFor, FORWARD, turnSpeed);
+  driveMotor(turnRev, REVERSE, turnSpeed);
   
-  
+  Serial.println("turning now");
 
-  uint16_t position = qtr.readLineBlack(sensorValues);
+  qtr.readLineBlack(sensorValues);
   
-  int stop = 0;
+  // int stop = 0;
 
-  while(stop == 0){
+  while(normArray[4] != 1 && normArray[3] != 1){
     
-    position = qtr.readLineBlack(sensorValues);
-    if(sensorValues[4] > 900 || sensorValues[3] > 900 ){
-      stop = 1;
-    }
+    qtr.readLineBlack(sensorValues);
+
+    normalize(700);
+    // if(sensorValues[4] > 900 || sensorValues[3] > 900 ){
+    //   stop = 1;
+    // }
   }
 
   
-
+  Serial.println("done turning");
   return(0);
 }
 
@@ -231,23 +249,16 @@ void loop(){
 
     // read calibrated sensor values and obtain a measure of the line position
     // from 0 to 5000 (for a white line, use readLineWhite() instead)
-    uint16_t position = qtr.readLineBlack(sensorValues);
+    position = qtr.readLineBlack(sensorValues);
 
-    for(int i = 0; i < SensorCount; i++){
-      if(sensorValues[i] >= 700){
-        normArray[i] = 1;
-      }
-      else{
-        normArray[i] = 0;
-      }
-    }
+    normalize();
 
     
 
-    int error = position - 3500;
+    error = position - 3500;
 
-    RturnSpd = defSpd - (2 * error + 3 * (error - lastError));
-    LturnSpd = defSpd + (2 * error + 3 * (error - lastError));
+    RturnSpd = defSpd - (K1 * error + K2 * (error - lastError));
+    LturnSpd = defSpd + (K1 * error + K2 * (error - lastError));
 
     lastError = error;
     
@@ -278,17 +289,10 @@ void loop(){
       for(int i = 500; i > 0; i--){
         position = qtr.readLineBlack(sensorValues);
 
-        for(int i = 0; i < SensorCount; i++){
-          if(sensorValues[i] >= 700){
-            normArray[i] = 1;
-          }
-          else{
-            normArray[i] = 0;
-          }
-        }
+        normalize(900);
+
         if(normArray[0] == 0 || normArray[7] == 0){
           pauze = true;
-          
         }
       }
 
@@ -298,8 +302,10 @@ void loop(){
       driveMotor(MOTOR_L, FORWARD, 0, true);
       if(pauze == false){
         stop = true;
+        Serial.println("stop");
       }
 
+      Serial.println("Pauze");
       delay(pauzeDel);
       
     }
