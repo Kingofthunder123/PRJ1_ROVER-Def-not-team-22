@@ -30,7 +30,7 @@ CRGB leds[NUM_LEDS];
 #define curPinA A0
 #define curPinB A1
 
-#define strtBtn 4
+#define strtBtn 52
 
 #define encoderPinA 20  // Encoder channel A for motor A connected to digital pin 20
 #define encoderPinB 21  // Encoder channel A for motor B connected to digital pin 21
