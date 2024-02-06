@@ -10,9 +10,10 @@ QTRSensors qtr;
 
 #define NUM_LEDS 22
 #define DATA_PIN 17
-#define Brightness 100
+#define Brightness 255
 
 CRGB leds[NUM_LEDS];
+CRGB FontysPurple = CRGB(102, 0, 153);
 
 
 // PIN DECLAIRATION
@@ -35,6 +36,8 @@ CRGB leds[NUM_LEDS];
 #define encoderPinA 20  // Encoder channel A for motor A connected to digital pin 20
 #define encoderPinB 21  // Encoder channel A for motor B connected to digital pin 21
 
+#define SwithFast 44
+#define SwithSlow 45
 
 const uint8_t SensorCount = 8;
 uint16_t sensorValues[SensorCount];
@@ -44,16 +47,23 @@ uint16_t sensorValues[SensorCount];
 // PARAMETERS
 // VVVVVVVVVV
 
+// PID parameters
 int defSpd  = 255; // Default speed. The speed setting for straght lines.
 int RturnSpd; // Turning speed. The speed setting for corners.
 int LturnSpd;
 int error;
 int lastError = 0;
-int maxSpeed = 255;
 
+// Speed settings
+int maxSpeed = 255;
+int rotationSpeed = 100;
+int stopSpeed = 50;
+
+// Delays
 int allignDel = 1;
 int pauzeDel = 5000;
-
+int turnDelay = 175;
+int preTurnSpeed = 0;
 
 
 // CUSTOM VARIABLES
@@ -78,18 +88,40 @@ volatile unsigned long nrStepsB = 0;
 // FUNCTIONS
 // VVVVVVVVV
 
+
+// Change the speed depending on the current switch position  (fast or slow)
+void speedControl() {
+//TEST THIS!!!
+  if(digitalRead(SwithFast) == HIGH){
+    defSpd = 255;
+    rotationSpeed = 180;
+    stopSpeed = 50;
+    turnDelay = 175;
+    preTurnSpeed = 255;
+  }
+  else {
+    defSpd = 255;
+    rotationSpeed = 140;
+    stopSpeed = 35;
+    turnDelay = 100;
+    preTurnSpeed = 100;
+  }
+
+}
+
+// Update the encoder count for motor A
 void updateEncoderA() {
   // Increment or decrement the encoder count for motor A based on the rising and falling edges of the encoder signal
   nrStepsA++;
 }
 
+// Update the encoder count for motor B
 void updateEncoderB() {
   // Increment or decrement the encoder count for motor B based on the rising and falling edges of the encoder signal
   nrStepsB++;
 }
 
-
-
+// Function to simplify the motor control
 void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = false){
 
   int dir = 0;
@@ -121,8 +153,7 @@ void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = fa
 
 }
 
-
-
+//MOST IMPORTANT FUNCTION to make the turn
 int makeTurn(int array[]){
 
   SELECT_MOTOR turnFor;
@@ -144,7 +175,11 @@ int makeTurn(int array[]){
 
   Serial.println("turning");
 
-  delay(175);
+  driveMotor(turnFor, FORWARD, preTurnSpeed);
+  driveMotor(turnRev, FORWARD, preTurnSpeed);
+
+  //DO NOT CHANGE!!!
+  delay(turnDelay);
 
   // unsigned int stepNrStart = nrStepsA;
 
@@ -156,8 +191,8 @@ int makeTurn(int array[]){
 
 
   
-  driveMotor(turnFor, FORWARD, 180);
-  driveMotor(turnRev, REVERSE, 180);
+  driveMotor(turnFor, FORWARD, rotationSpeed);
+  driveMotor(turnRev, REVERSE, rotationSpeed);
   
   
 
@@ -177,7 +212,6 @@ int makeTurn(int array[]){
 
   return(0);
 }
-
 
 
 // SETUP
@@ -205,6 +239,9 @@ void setup(){
   pinMode(encoderPinA, INPUT_PULLUP);
   pinMode(encoderPinB, INPUT_PULLUP);
 
+  pinMode(SwithFast, INPUT);
+  pinMode(SwithSlow, INPUT);
+
   // attachInterrupt(digitalPinToInterrupt(encoderPinA), updateEncoderA, CHANGE);
   // attachInterrupt(digitalPinToInterrupt(encoderPinB), updateEncoderB, CHANGE);
 
@@ -214,7 +251,7 @@ void setup(){
 
   delay(500);
 
-  fill_solid(leds, NUM_LEDS, CRGB::Purple);
+  fill_solid(leds, NUM_LEDS, FontysPurple);
   FastLED.show();
 
 
@@ -222,14 +259,14 @@ void setup(){
     qtr.calibrate();
     Serial.println(i);
   }
-
-
 }
 
 
 
 // LOOP
 // VVVV
+
+
 void loop(){
 
   fill_solid(leds, NUM_LEDS, CRGB::Red);
@@ -239,9 +276,14 @@ void loop(){
   while(digitalRead(strtBtn) != HIGH) {
   }
   stop = false;
-  while(!stop){
 
-  
+  speedControl();
+  Serial.println(rotationSpeed);
+  Serial.println(stopSpeed);
+
+//main while loop
+  while(!stop){  
+
   fill_solid(leds, NUM_LEDS, CRGB::Green);
   FastLED.show();
 
@@ -260,7 +302,7 @@ void loop(){
     }
 
     
-
+    //PID control
     int error = position - 3500;
 
     RturnSpd = defSpd - (2 * error + 3 * (error - lastError));
@@ -279,16 +321,20 @@ void loop(){
     driveMotor(MOTOR_R, FORWARD, RturnSpd);
     driveMotor(MOTOR_L, FORWARD, LturnSpd);
 
-
-
     
     makeTurn(normArray);
     
     
+    //IF to stop
     if(normArray[0] == 1 && normArray[7] == 1){
+      
+      driveMotor(MOTOR_R, FORWARD, 0, true);
+      driveMotor(MOTOR_L, FORWARD, 0, true);
 
-      driveMotor(MOTOR_R, FORWARD, 70);
-      driveMotor(MOTOR_L, FORWARD, 70);
+      delay(10);
+
+      driveMotor(MOTOR_R, FORWARD, stopSpeed);
+      driveMotor(MOTOR_L, FORWARD, stopSpeed);
 
       int starttime = millis();
 
@@ -311,6 +357,8 @@ void loop(){
       driveMotor(MOTOR_R, FORWARD, 0, true);
       driveMotor(MOTOR_L, FORWARD, 0, true);
 
+      
+    // millis delay for the pause
       if(endTime - starttime < 500){
         fill_solid(leds, NUM_LEDS, CRGB::Blue);
         FastLED.show();
@@ -320,54 +368,6 @@ void loop(){
       else{
         stop = true;
       }
-    
-
-      // for(int i = 500; i > 0; i--){
-      //   position = qtr.readLineBlack(sensorValues);
-
-      //   for(int i = 0; i < SensorCount; i++){
-      //     if(sensorValues[i] >= 700){
-      //       normArray[i] = 1;
-      //     }
-      //     else{
-      //       normArray[i] = 0;
-      //     }
-      //   }
-      //   if(normArray[0] == 0 || normArray[7] == 0){
-      //     pauze = true;
-      //     Serial.println("pauze");
-      //   }
-      // }
-
-      // delay(allignDel);
-
-      // driveMotor(MOTOR_R, FORWARD, 0, true);
-      // driveMotor(MOTOR_L, FORWARD, 0, true);
-      // if(pauze == false){
-      //   stop = true;
-
-      //   driveMotor(MOTOR_R, FORWARD, 180);
-      //   driveMotor(MOTOR_L, FORWARD, 180);
-
-      //   while(normArray[0] == 0 || normArray[7] == 0){
-      //     position = qtr.readLineBlack(sensorValues);
-
-      //     for(int i = 0; i < SensorCount; i++){
-      //       if(sensorValues[i] >= 700){
-      //         normArray[i] = 1;
-      //       }
-      //       else{
-      //         normArray[i] = 0;
-      //       }
-      //     }
-      //   }
-
-      //   delay(100);
-        
-        
-      // }
-
-      
     }
 
     for(int i = 0; i < SensorCount; i++){
@@ -376,6 +376,8 @@ void loop(){
     }
     Serial.println();
   }
-
-
 }
+
+// to try in the future
+// qtr.setCalibration();
+// test speed settings with the switch
