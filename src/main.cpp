@@ -3,18 +3,8 @@
 
 #include <Arduino.h>
 #include <QTRSensors.h>
-#include <FastLED.h>
 
 QTRSensors qtr;
-
-
-#define NUM_LEDS 22
-#define DATA_PIN 17
-#define Brightness 255
-
-CRGB leds[NUM_LEDS];
-CRGB FontysPurple = CRGB(102, 0, 153);
-
 
 // PIN DECLAIRATION
 // VVVVVVVVVVVVVVVV
@@ -220,10 +210,6 @@ void setup(){
   
   Serial.begin(9600);
 
-  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(Brightness);
-  FastLED.clear();
-
   pinMode(dirPinA, OUTPUT);
   pinMode(dirPinB, OUTPUT);
 
@@ -251,14 +237,13 @@ void setup(){
 
   delay(500);
 
-  fill_solid(leds, NUM_LEDS, FontysPurple);
-  FastLED.show();
-
 
   for (uint16_t i = 0; i < 150; i++){
     qtr.calibrate();
     Serial.println(i);
   }
+
+  
 }
 
 
@@ -268,10 +253,6 @@ void setup(){
 
 
 void loop(){
-
-  fill_solid(leds, NUM_LEDS, CRGB::Red);
-  FastLED.show();
-  
 
   while(digitalRead(strtBtn) != HIGH) {
   }
@@ -284,22 +265,24 @@ void loop(){
 //main while loop
   while(!stop){  
 
-  fill_solid(leds, NUM_LEDS, CRGB::Green);
-  FastLED.show();
 
-
-    // read calibrated sensor values and obtain a measure of the line position
-    // from 0 to 5000 (for a white line, use readLineWhite() instead)
-    uint16_t position = qtr.readLineBlack(sensorValues);
-
-    for(int i = 0; i < SensorCount; i++){
-      if(sensorValues[i] >= 750){
-        normArray[i] = 1;
-      }
-      else{
-        normArray[i] = 0;
-      }
+  // read calibrated sensor values and obtain a measure of the line position
+  // from 0 to 5000 (for a white line, use readLineWhite() instead)
+  uint16_t position = qtr.readLineBlack(sensorValues);
+  
+  for(int i = 0; i < SensorCount; i++){
+    
+    if(sensorValues[i] >= 750){
+      normArray[i] = 1;
     }
+    else{
+      normArray[i] = 0;
+    }
+    Serial.print(normArray[i]);
+    Serial.print(" ");
+  }
+
+  Serial.println();
 
     
     //PID control
@@ -360,8 +343,6 @@ void loop(){
       
     // millis delay for the pause
       if(endTime - starttime < 500){
-        fill_solid(leds, NUM_LEDS, CRGB::Blue);
-        FastLED.show();
         stop = false;
         delay(pauzeDel);
       }
