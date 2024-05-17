@@ -23,9 +23,6 @@ QTRSensors qtr;
 
 #define strtBtn 52
 
-#define encoderPinA 20  // Encoder channel A for motor A connected to digital pin 20
-#define encoderPinB 21  // Encoder channel A for motor B connected to digital pin 21
-
 #define SwithFast 44
 #define SwithSlow 45
 
@@ -222,14 +219,8 @@ void setup(){
   pinMode(curPinA, INPUT);
   pinMode(curPinB, INPUT);
 
-  pinMode(encoderPinA, INPUT_PULLUP);
-  pinMode(encoderPinB, INPUT_PULLUP);
-
   pinMode(SwithFast, INPUT);
   pinMode(SwithSlow, INPUT);
-
-  // attachInterrupt(digitalPinToInterrupt(encoderPinA), updateEncoderA, CHANGE);
-  // attachInterrupt(digitalPinToInterrupt(encoderPinB), updateEncoderB, CHANGE);
 
   qtr.setTypeAnalog();
   qtr.setSensorPins((const uint8_t[]){A8, A9, A10, A11, A12, A13, A14, A15}, SensorCount);
