@@ -43,8 +43,7 @@ int lastError = 0;
 
 // Speed settings
 int maxSpeed = 255;
-int rotationSpeed = 150
-;
+int rotationSpeed = 150;
 int stopSpeed = 50;
 
 // Delays
@@ -70,7 +69,6 @@ int normArray[8];
 
 // Change the speed depending on the current switch position  (fast or slow)
 void speedControl() {
-//TEST THIS!!!
   if(digitalRead(SwithFast) == HIGH){
     defSpd = 255;
     rotationSpeed = 180;
