@@ -119,17 +119,17 @@ void driveMotor(SELECT_MOTOR motor, DIRECTION dirSel, int power, bool brake = fa
 }
 
 // MOST IMPORTANT FUNCTION to make the turn
-int makeTurn(int array[]){
+int makeTurn(){
 
   SELECT_MOTOR turnFor;
   SELECT_MOTOR turnRev;
 
-  if((array[0] == 1  && array[7] == 0)){
+  if((normArray[0] == 1  && normArray[7] == 0)){
     Serial.println("RIGHT");
     turnFor = MOTOR_R;
     turnRev = MOTOR_L;
   }
-  else if((array[0] == 0  && array[7] == 1)){
+  else if((normArray[0] == 0  && normArray[7] == 1)){
     Serial.println("LEFT");
     turnFor = MOTOR_L;
     turnRev = MOTOR_R;
@@ -179,8 +179,8 @@ int makeTurn(int array[]){
 }
 
 // Refresh sensor
-void readSensor(int threshold){
-  uint16_t position = qtr.readLineBlack(sensorValues);
+void readSensor(unsigned int threshold){
+  qtr.readLineBlack(sensorValues);
   
   for(int i = 0; i < SensorCount; i++){
     
@@ -198,7 +198,7 @@ void readSensor(int threshold){
 }
 
 // PID control function
-void PIDSteer(int array[]){
+void PIDSteer(){
   //PID control
 
   uint16_t position = qtr.readLineBlack(sensorValues);
@@ -221,6 +221,48 @@ void PIDSteer(int array[]){
   driveMotor(MOTOR_L, FORWARD, LturnSpd);
 
 }
+
+void pauzeStop(){
+  if(normArray[0] == 1 && normArray[7] == 1){
+      
+    driveMotor(MOTOR_R, FORWARD, 0, true);
+    driveMotor(MOTOR_L, FORWARD, 0, true);
+
+    delay(10);
+
+    driveMotor(MOTOR_R, FORWARD, stopSpeed);
+    driveMotor(MOTOR_L, FORWARD, stopSpeed);
+
+    int starttime = millis();
+
+    while(normArray[0] == 1 || normArray[7] == 1){
+      readSensor(700);
+    }
+    int endTime = millis();
+
+    delay(allignDel);
+
+    driveMotor(MOTOR_R, FORWARD, 0, true);
+    driveMotor(MOTOR_L, FORWARD, 0, true);
+
+      
+    // millis delay for the pause
+    if(endTime - starttime < 500){
+      stop = false;
+      delay(pauzeDel);
+    }
+    else{
+      stop = true;
+    }
+  }
+
+  for(int i = 0; i < SensorCount; i++){
+    Serial.print(normArray[i]);
+    Serial.print("\t");
+  }
+
+}
+
 
 // SETUP
 // VVVVV
@@ -269,63 +311,16 @@ void loop(){
   while(digitalRead(strtBtn) != HIGH) {}
   stop = false;
 
-  // speedControl();
-  // Serial.println(rotationSpeed);
-  // Serial.println(stopSpeed);
-
   readSensor(700);
-//main while loop
+  //main while loop
   while(!stop){  
 
-    PIDSteer(normArray);
+    PIDSteer();
 
     readSensor(750);
 
-    makeTurn(normArray);
-    
-    
-    //IF to stop
-    if(normArray[0] == 1 && normArray[7] == 1){
-      
-      driveMotor(MOTOR_R, FORWARD, 0, true);
-      driveMotor(MOTOR_L, FORWARD, 0, true);
+    makeTurn();
 
-      delay(10);
-
-      driveMotor(MOTOR_R, FORWARD, stopSpeed);
-      driveMotor(MOTOR_L, FORWARD, stopSpeed);
-
-      int starttime = millis();
-
-      while(normArray[0] == 1 || normArray[7] == 1){
-        readSensor(700);
-      }
-      int endTime = millis();
-
-      delay(allignDel);
-
-      driveMotor(MOTOR_R, FORWARD, 0, true);
-      driveMotor(MOTOR_L, FORWARD, 0, true);
-
-      
-    // millis delay for the pause
-      if(endTime - starttime < 500){
-        stop = false;
-        delay(pauzeDel);
-      }
-      else{
-        stop = true;
-      }
-    }
-
-    for(int i = 0; i < SensorCount; i++){
-      Serial.print(normArray[i]);
-      Serial.print("\t");
-    }
-    Serial.println();
+    pauzeStop();
   }
 }
-
-// to try in the future
-// qtr.setCalibration();
-// test speed settings with the switch
