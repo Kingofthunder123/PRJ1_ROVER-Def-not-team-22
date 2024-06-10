@@ -21,10 +21,10 @@ QTRSensors qtr;
 #define curPinA A0
 #define curPinB A1
 
-#define strtBtn 52
+#define strtBtn 41
 
-#define SwithFast 44
-#define SwithSlow 45
+#define SwithFast 43
+const int ledPin     = 45;
 
 const uint8_t SensorCount = 8;
 uint16_t sensorValues[SensorCount];
@@ -35,14 +35,14 @@ uint16_t sensorValues[SensorCount];
 // VVVVVVVVVV
 
 // PID parameters
-int defSpd  = 255; // Default speed. The speed setting for straght lines.
+int defSpd  = 220; // Default speed. The speed setting for straght lines.
 int RturnSpd; // Turning speed. The speed setting for corners.
 int LturnSpd;
 int error;
 int lastError = 0;
 
 // Speed settings
-int maxSpeed = 255;
+int maxSpeed = 220;
 int rotationSpeed = 150;
 int stopSpeed = 50;
 
@@ -50,7 +50,7 @@ int stopSpeed = 50;
 int allignDel = 1;
 int pauzeDel = 5000;
 int turnDelay = 20;
-int preTurnSpeed = 100;
+int preTurnSpeed = 90;
 
 
 // CUSTOM VARIABLES
@@ -72,14 +72,14 @@ void speedControl() {
   if(digitalRead(SwithFast) == HIGH){
     defSpd = 255;
     rotationSpeed = 180;
-    stopSpeed = 50;
+    stopSpeed = 15;
     turnDelay = 175;
-    preTurnSpeed = 255;
+    preTurnSpeed = 90;
   }
   else {
     defSpd = 255;
     rotationSpeed = 140;
-    stopSpeed = 35;
+    stopSpeed = 15;
     turnDelay = 100;
     preTurnSpeed = 100;
   }
@@ -222,6 +222,10 @@ void PIDSteer(){
 
 }
 
+void blink(){
+  digitalWrite(ledPin, !digitalRead(ledPin));
+}
+
 void pauzeStop(){
   if(normArray[0] == 1 && normArray[7] == 1){
       
@@ -283,20 +287,24 @@ void setup(){
   pinMode(curPinB, INPUT);
 
   pinMode(SwithFast, INPUT);
-  pinMode(SwithSlow, INPUT);
 
   qtr.setTypeAnalog();
   qtr.setSensorPins((const uint8_t[]){A8, A9, A10, A11, A12, A13, A14, A15}, SensorCount);
-  qtr.setEmitterPin(2);
+  qtr.setEmitterPin(47);
 
   delay(500);
 
+  pinMode(45, OUTPUT);
+  
+  digitalWrite(45, HIGH);
 
   for (uint16_t i = 0; i < 150; i++){
     qtr.calibrate();
     Serial.println(i);
   }
 
+  
+  digitalWrite(45, LOW);
   
 }
 
@@ -311,7 +319,8 @@ void loop(){
   while(digitalRead(strtBtn) != HIGH) {}
   stop = false;
 
-  readSensor(700);
+  
+
   //main while loop
   while(!stop){  
 
