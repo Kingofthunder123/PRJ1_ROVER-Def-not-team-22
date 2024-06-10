@@ -24,7 +24,6 @@ QTRSensors qtr;
 #define strtBtn 41
 
 #define SwithFast 43
-const int ledPin     = 45;
 
 const uint8_t SensorCount = 8;
 uint16_t sensorValues[SensorCount];
@@ -222,9 +221,7 @@ void PIDSteer(){
 
 }
 
-void blink(){
-  digitalWrite(ledPin, !digitalRead(ledPin));
-}
+
 
 void pauzeStop(){
   if(normArray[0] == 1 && normArray[7] == 1){
