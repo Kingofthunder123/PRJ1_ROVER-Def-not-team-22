@@ -327,3 +327,30 @@ void loop(){
 // to try in the future
 // qtr.setCalibration();
 // test speed settings with the switch
+
+
+// Pins for stepper motor
+const int dirPin  = 14;
+const int stepPin = 15;
+
+// MicroStep pins for stepper motor
+const int uStep0 = 18;
+const int uStep1 = 19;
+const int uStep2 = 20;
+
+#define motorInterfaceType 1
+
+AccelStepper turnStepper(motorInterfaceType, stepPin, dirPin);
+
+pinMode(uStep0, OUTPUT);
+pinMode(uStep1, OUTPUT);
+pinMode(uStep2, OUTPUT);
+
+  // Sets 1/4 microstepping
+digitalWrite(uStep0, LOW);
+digitalWrite(uStep1, HIGH);
+digitalWrite(uStep2, LOW);
+
+turnStepper.moveTo(0);
+while(turnStepper.distanceToGo() != 0){turnStepper.run();}
+
